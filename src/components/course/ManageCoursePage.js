@@ -3,13 +3,15 @@ import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 import * as courseActions from '../../actions/courseActions';
 import CourseForm from './CourseForm';
+import toastr from 'toastr';
 
 class ManageCoursePage extends React.Component {
   constructor(props, context) {
     super(props, context);
     this.state = {
       course: Object.assign({}, this.props.course),
-      errors: {}
+      errors: {},
+      saving: false
     };
 
     this.updateCourseState = this.updateCourseState.bind(this);
@@ -17,7 +19,7 @@ class ManageCoursePage extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if(this.props.course.id != nextProps.course.id) {
+    if (this.props.course.id !== nextProps.course.id) {
       // Necessary to populate form when existing course is loaded directly
       this.setState({course: Object.assign({}, nextProps.course)});
     }
@@ -32,7 +34,18 @@ class ManageCoursePage extends React.Component {
 
   saveCourse(event) {
     event.preventDefault();
-    this.props.actions.saveCourse(this.state.course);
+    this.setState({saving: true});
+    this.props.actions.saveCourse(this.state.course)
+      .then(() => this.redirect())
+      .catch(error => {
+        toastr.error(error);
+        this.setState({saving: false});
+      });
+  }
+
+  redirect(){
+    this.setState({saving: false});
+    toastr.success('Course saved');
     this.context.router.push('/courses');
   }
 
@@ -44,6 +57,7 @@ class ManageCoursePage extends React.Component {
         onSave={this.saveCourse}
         course={this.state.course}
         errors={this.state.errors}
+        saving={this.state.saving}
       />
     );
   }
@@ -61,7 +75,7 @@ ManageCoursePage.contextTypes = {
 
 function getCourseById(courses, id) {
   const course = courses.filter(course => course.id === id);
-  if(course) return course[0]; //since filter returns an array, have to grab the first.
+  if (course) return course[0]; //since filter returns an array, have to grab the first.
   return null;
 }
 
@@ -69,12 +83,11 @@ function mapStateToProps(state, ownProps) {
   const courseId = ownProps.params.id; //from path `/course/:id`
   let course = {id: '', watchHref: '', title: '', authorId: '', length: '', category: ''};
 
-  if(courseId && state.courses.length > 0) {
+  if (courseId && state.courses.length > 0) {
     course = getCourseById(state.courses, courseId);
   }
 
-  const authorsFormattedForDropdown = state.authors.map(
-    author => {
+  const authorsFormattedForDropdown = state.authors.map(author => {
       return {
         value: author.id,
         text: author.firstName + ' ' + author.lastName
